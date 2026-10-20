@@ -1,4 +1,4 @@
-"""Baseline MLP vs class-balanced, CV-tuned LightGBM on scikit-learn's bundled digits set.
+"""Baseline MLP vs class-balanced, CV-tuned RBF SVM on scikit-learn's bundled digits set.
 Writes results.json and figures/comparison.png. Seed 42 everywhere; repeats use 42, 43, 44."""
 import json
 import os
@@ -9,12 +9,12 @@ import matplotlib
 matplotlib.use("Agg")  # headless plotting on CI runners
 import matplotlib.pyplot as plt
 import numpy as np
-from lightgbm import LGBMClassifier
 from sklearn.datasets import load_digits
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
 
 SEED = 42
 SEEDS = [42, 43, 44]
@@ -45,10 +45,10 @@ def make_baseline(seed):
 
 
 def make_improved(seed):
-    # Class-balanced LightGBM; trees and learning rate picked by 3-fold CV on train only
+    # Class-balanced RBF SVM; C and gamma picked by 3-fold stratified CV on the training split only
     return GridSearchCV(
-        LGBMClassifier(class_weight="balanced", n_jobs=1, random_state=seed, verbose=-1),
-        param_grid={"n_estimators": [100, 300], "learning_rate": [0.05, 0.1]},
+        SVC(kernel="rbf", class_weight="balanced", random_state=seed),
+        param_grid={"C": [1, 10, 100], "gamma": [0.005, 0.01, 0.02, 0.05]},
         cv=StratifiedKFold(3, shuffle=True, random_state=seed),
         scoring="f1_macro", n_jobs=1, refit=True)
 
@@ -75,7 +75,7 @@ chosen = []
 for s in SEEDS:
     log(f"seed {s}: fitting baseline MLP")
     runs["baseline"].append(evaluate(make_baseline(s).fit(X_tr, y_tr)))
-    log(f"seed {s}: CV-tuning and fitting class-balanced LightGBM")
+    log(f"seed {s}: CV-tuning and fitting class-balanced RBF SVM")
     gs = make_improved(s).fit(X_tr, y_tr)  # CV uses training data only
     chosen.append(gs.best_params_)
     runs["improved"].append(evaluate(gs.best_estimator_))
@@ -105,7 +105,7 @@ if not all(np.isfinite(v) for v in metrics.values()) or metrics["baseline_score"
 os.makedirs("figures", exist_ok=True)
 fig, axes = plt.subplots(1, 2, figsize=(9, 4))
 for ax, key, title in [(axes[0], "f1", "Test macro-F1"), (axes[1], "noisy_acc", "Accuracy, noisy test")]:
-    ax.bar(["baseline MLP", "improved LightGBM"], [b[key][0], i[key][0]],
+    ax.bar(["baseline MLP", "improved SVM"], [b[key][0], i[key][0]],
            yerr=[b[key][1], i[key][1]], capsize=4, color=["gray", "tab:blue"])
     ax.set_title(title)
     ax.set_ylim(0, 1)
@@ -115,13 +115,13 @@ log("saved figures/comparison.png")
 
 # 4. Write results.json
 results = {
-    "question": "Can a class-balanced, CV-tuned LightGBM model match or beat a standard MLP perception "
+    "question": "Can a class-balanced, CV-tuned model match or beat a standard MLP perception "
                 "stand-in on macro-F1 while giving lower per-sample inference latency and better "
                 "accuracy under input noise?",
     "method": "Stratified 75/25 split of scikit-learn digits; features standardised on training data. "
-              "Baseline MLPClassifier (128 hidden units) vs class-balanced LightGBM with n_estimators and "
-              "learning_rate chosen by 3-fold CV on training data. Test metrics, latency and noisy "
-              "accuracy computed for both; repeated for seeds 42, 43, 44.",
+              "Baseline MLPClassifier (128 hidden units) vs class-balanced RBF SVM with C and gamma "
+              "chosen by 3-fold stratified CV (macro-F1) on training data. Test metrics, latency and "
+              "noisy accuracy computed for both; repeated for seeds 42, 43, 44.",
     "dataset": {
         "name": "scikit-learn digits (load_digits, bundled)",
         "source_url": "https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_digits.html",
@@ -132,15 +132,16 @@ results = {
     "metric_name": "macro-F1 on held-out test split",
     "higher_is_better": True,
     "baseline": "scikit-learn MLPClassifier, one hidden layer of 128 units, trained on standardised pixels",
-    "improved": "Class-balanced LightGBM classifier; n_estimators and learning_rate selected by 3-fold "
-                "stratified CV on the training split only",
+    "improved": "Class-balanced RBF-kernel SVM (SVC); C and gamma selected by 3-fold stratified CV on "
+                "the training split only",
     "metrics": metrics,
     "notes": (f"Digits is a small stand-in for camera perception, not a driving dataset, so results do not "
-              f"show real-world performance. Noise is Gaussian sigma={NOISE_SIGMA} on the raw pixel scale, "
-              f"one fixed draw shared by both models. Latency is mean wall-clock time per single-sample "
-              f"predict() over {N_LATENCY} test rows on this runner (LightGBM single-threaded); it is "
-              f"hardware-dependent. Std values are across seeds {SEEDS}; the test split is identical for all. "
-              f"Chosen LightGBM params per seed: {chosen}."),
+              f"show real-world performance. The improved model was changed from LightGBM to an RBF SVM "
+              f"after LightGBM trailed the baseline on macro-F1; the baseline and test split are unchanged. "
+              f"Noise is Gaussian sigma={NOISE_SIGMA} on the raw pixel scale, one fixed draw shared by both "
+              f"models. Latency is mean wall-clock time per single-sample predict() over {N_LATENCY} test "
+              f"rows on this runner; it is hardware-dependent. Std values are across seeds {SEEDS}; the test "
+              f"split is identical for all. Chosen SVM params per seed: {chosen}."),
 }
 with open("results.json", "w", encoding="utf-8") as f:
     json.dump(results, f, indent=2)

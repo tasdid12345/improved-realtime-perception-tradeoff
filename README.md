@@ -1,25 +1,23 @@
-# Class-balanced LightGBM vs MLP for lightweight perception
+# Digits: MLP baseline vs class-balanced, CV-tuned RBF SVM
 
-Software-defined vehicles need perception workflows that are both accurate and fast enough for real-time use, as discussed in "Toward real-time and efficient perception workflows in software-defined vehicles". Deep neural networks are the usual choice for perception, but their inference cost and sensitivity to sensor noise matter in production. This experiment asks whether a tree-based model can be a competitive, cheaper alternative on a small image classification task.
+This project compares a standard MLP baseline with a class-balanced RBF SVM on scikit-learn's bundled digits dataset (1797 rows, no download needed).
 
-**Question:** Can a class-balanced, CV-tuned LightGBM model match or beat a standard MLP perception stand-in on macro-F1 while giving lower per-sample inference latency and better accuracy under input noise?
+## Method
+- Stratified 75/25 train/test split (`random_state=42`); features standardised using training statistics only.
+- Baseline: `MLPClassifier` with one hidden layer of 128 units (unchanged).
+- Improved: `SVC` with RBF kernel and `class_weight="balanced"`. `C` in {1, 10, 100} and `gamma` in {0.005, 0.01, 0.02, 0.05} are chosen by 3-fold stratified CV on the training split only, scored by macro-F1.
+- Repeated for seeds 42, 43, 44. The test set is used only for final evaluation.
+- Metrics: macro-F1 (primary), accuracy, accuracy on Gaussian-noisy test pixels (sigma = 2), and single-sample latency.
 
-**Dataset:** scikit-learn's bundled handwritten-digit image set, loaded locally with no download. It is a small stand-in for camera-based perception and is not the paper's own dataset.
-
-**Baseline:** a standard scikit-learn MLPClassifier with one hidden layer of 128 units, trained on standardised pixels.
-
-**Improved model:** a class-balanced LightGBM classifier whose number of trees and learning rate are chosen by 3-fold stratified cross-validation on the training split only.
-
-Both models use the same stratified train/test split, the same preprocessing, the same evaluation function and the same timing protocol. Results are repeated over several random seeds.
-
-## How to run
-
+## Run
 ```
 pip install -r requirements.txt
 python analysis.py
 ```
+Outputs: `results.json` and `figures/comparison.png`. Runtime is well under 20 minutes on CPU.
 
-Results: results are written to results.json (and figures/comparison.png).
+## Notes
+The improved model was switched from LightGBM to an RBF SVM because the LightGBM version scored below the MLP baseline on macro-F1. This is a model choice on digits only and does not reflect real-world perception performance.
 
 ## Reference
 
