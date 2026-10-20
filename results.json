@@ -1,0 +1,31 @@
+{
+  "question": "Can a class-balanced, CV-tuned model match or beat a standard MLP perception stand-in on macro-F1 while giving lower per-sample inference latency and better accuracy under input noise?",
+  "method": "Stratified 75/25 split of scikit-learn digits; features standardised on training data. Baseline MLPClassifier (128 hidden units) vs class-balanced RBF SVM with C and gamma chosen by 3-fold stratified CV (macro-F1) on training data. Test metrics, latency and noisy accuracy computed for both; repeated for seeds 42, 43, 44.",
+  "dataset": {
+    "name": "scikit-learn digits (load_digits, bundled)",
+    "source_url": "https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_digits.html",
+    "n_rows": 1797,
+    "n_train": 1347,
+    "n_test": 450,
+    "same_as_paper": false,
+    "baseline_is_papers_method": false
+  },
+  "metric_name": "macro-F1 on held-out test split",
+  "higher_is_better": true,
+  "baseline": "scikit-learn MLPClassifier, one hidden layer of 128 units, trained on standardised pixels",
+  "improved": "Class-balanced RBF-kernel SVM (SVC); C and gamma selected by 3-fold stratified CV on the training split only",
+  "metrics": {
+    "baseline_score": 0.977641654829498,
+    "baseline_score_std": 0.0019243981484243894,
+    "improved_score": 0.9806388662592114,
+    "improved_score_std": 0.002095389893626061,
+    "improvement": 0.00299721142971332,
+    "baseline_accuracy": 0.9777777777777777,
+    "improved_accuracy": 0.9807407407407407,
+    "baseline_noisy_accuracy": 0.2918518518518518,
+    "improved_noisy_accuracy": 0.12518518518518518,
+    "baseline_latency_ms": 0.30093302666667654,
+    "improved_latency_ms": 0.20870952000001589
+  },
+  "notes": "Digits is a small stand-in for camera perception, not a driving dataset, so results do not show real-world performance. The improved model was changed from LightGBM to an RBF SVM after LightGBM trailed the baseline on macro-F1; the baseline and test split are unchanged. Noise is Gaussian sigma=2.0 on the raw pixel scale, one fixed draw shared by both models. Latency is mean wall-clock time per single-sample predict() over 200 test rows on this runner; it is hardware-dependent. Std values are across seeds [42, 43, 44]; the test split is identical for all. Chosen SVM params per seed: [{'C': 100, 'gamma': 0.01}, {'C': 1, 'gamma': 0.02}, {'C': 10, 'gamma': 0.01}]."
+}
