@@ -19,6 +19,28 @@ Outputs: `results.json` and `figures/comparison.png`. Runtime is well under 20 m
 ## Notes
 The improved model was switched from LightGBM to an RBF SVM because the LightGBM version scored below the MLP baseline on macro-F1. This is a model choice on digits only and does not reflect real-world perception performance.
 
+## Results (latest run)
+
+On scikit-learn digits, a standard scikit-learn MLP classifier as a stand-in for the paper's deep perception model reached 0.978 macro-F1 versus 0.981 for my class-balanced RBF SVM, a small gain, but the SVM scored lower under Gaussian input noise (12.5% vs 29.2% accuracy).
+
+| Metric | Value |
+|---|---|
+| baseline_score | 0.9776 |
+| baseline_score_std | 0.001924 |
+| improved_score | 0.9806 |
+| improved_score_std | 0.002095 |
+| improvement | 0.002997 |
+| baseline_accuracy | 0.9778 |
+| improved_accuracy | 0.9807 |
+| baseline_noisy_accuracy | 0.2919 |
+| improved_noisy_accuracy | 0.1252 |
+| baseline_latency_ms | 0.3009 |
+| improved_latency_ms | 0.2087 |
+
+Run on 2026-10-20. Full output: [results.json](results.json) · [run.log](run.log)
+
+Notes: Digits is a small stand-in for camera perception, not a driving dataset, so results do not show real-world performance. The improved model was changed from LightGBM to an RBF SVM after LightGBM trailed the baseline on macro-F1; the baseline and test split are unchanged. Noise is Gaussian sigma=2.0 on the raw pixel scale, one fixed draw shared by both models. Latency is mean wall-clock time per single-sample predict() over 200 test rows on this runner; it is hardware-dependent. Std values are across seeds [42, 43, 44]; the test split is identical for all. Chosen SVM params per seed: [{'C': 100, 'gamma': 0.01}, {'C': 1, 'gamma': 0.02}, {'C': 10, 'gamma': 0.01}].
+
 ## Reference
 
 This project is motivated by the following paper:
